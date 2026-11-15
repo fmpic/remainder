@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>eSIM 保号提醒服务</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="loginView" class="login-screen hidden">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="brand-icon" aria-hidden="true">e<span>SIM</span></div>
+        <h2>eSIM 保号提醒</h2>
+        <p class="subtitle">请登录以管理您的 eSIM 与提醒设置</p>
+      </div>
+      <form id="loginForm" class="login-form">
+        <div class="form-group">
+          <label for="loginUsername">用户名</label>
+          <input id="loginUsername" type="text" autocomplete="username" required />
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">密码</label>
+          <input id="loginPassword" type="password" autocomplete="current-password" required />
+        </div>
+        <div id="loginError" class="login-error hidden"></div>
+        <button type="submit" class="btn btn-primary login-submit">登录</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="appView" class="container hidden">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">e<span>SIM</span></div>
+        <div>
+          <h1>eSIM 保号提醒</h1>
+          <p class="subtitle">自动识别号码归属国家 · 提前 30 / 15 / 7 / 3 天 Telegram 提醒</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span id="tgStatusBadge" class="badge badge-muted">Telegram 未配置</span>
+        <button id="btnCheckNow" class="btn btn-secondary" title="立即检查并发送到期提醒">🔔 立即检查</button>
+        <button id="btnSettings" class="btn btn-secondary">⚙️ Telegram 设置</button>
+        <button id="btnAddEsim" class="btn btn-primary">+ 添加 eSIM</button>
+        <button id="btnLogout" class="btn btn-ghost hidden" title="退出登录">🚪 退出</button>
+      </div>
+    </header>
+
+    <section class="overview-banner" aria-labelledby="overviewTitle">
+      <div>
+        <span class="eyebrow">YOUR CONNECTIONS, ORGANIZED</span>
+        <h2 id="overviewTitle">每一个号码，都安心在线。</h2>
+        <p>把保号日期交给提醒，随时掌握你的全球连接。</p>
+      </div>
+      <div class="reminder-preview" aria-label="到期前 30、15、7、3 天分阶段提醒">
+        <span class="preview-label"><span class="status-dot"></span> 分阶段到期提醒</span>
+        <div class="preview-stages"><span>30<small>天</small></span><i></i><span>15<small>天</small></span><i></i><span>7<small>天</small></span><i></i><span>3<small>天</small></span></div>
+        <span class="preview-caption">Telegram 推送 · 不错过重要日期</span>
+      </div>
+    </section>
+
+    <section class="stats-grid" aria-label="号码状态概览">
+      <div class="stat-card">
+        <div class="stat-label">全部 eSIM</div>
+        <div id="statTotal" class="stat-value">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">30 天内到期</div>
+        <div id="statUpcoming" class="stat-value text-warning">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">7 天内紧急</div>
+        <div id="statUrgent" class="stat-value text-danger">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">已过期</div>
+        <div id="statExpired" class="stat-value text-critical">0</div>
+      </div>
+    </section>
+
+    <div class="section-heading">
+      <div><span class="eyebrow">MY ESIMS</span><h2>我的 eSIM</h2></div>
+      <p>管理号码，轻松安排下一次保号</p>
+    </div>
+    <section class="toolbar" aria-label="搜索和筛选号码">
+      <div class="search-box">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input id="searchInput" type="search" aria-label="搜索号码、国家、运营商或备注" placeholder="搜索号码、国家、运营商或备注…" />
+      </div>
+      <div class="filter-tabs">
+        <button class="tab active" data-filter="all">全部</button>
+        <button class="tab" data-filter="upcoming">30天内</button>
+        <button class="tab" data-filter="urgent">7天内</button>
+        <button class="tab" data-filter="expired">已过期</button>
+      </div>
+    </section>
+
+    <main id="esimList" class="esim-grid"></main>
+
+    <section class="logs-section">
+      <div class="logs-header">
+        <div><span class="eyebrow">ACTIVITY</span><h2>最近提醒记录</h2></div>
+        <button id="btnRefreshLogs" class="btn btn-ghost btn-sm">刷新</button>
+      </div>
+      <div id="logsContainer" class="logs-list"></div>
+    </section>
+  </div>
+
+  <!-- 添加 / 编辑 eSIM 弹窗 -->
+  <div id="esimModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="esimModalTitle">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="esimModalTitle">添加 eSIM</h3>
+        <button class="modal-close" data-close="esimModal" aria-label="关闭 eSIM 编辑窗口">&times;</button>
+      </div>
+      <form id="esimForm" class="modal-body">
+        <input type="hidden" id="esimId" />
+
+        <div class="form-group">
+          <label for="phoneInput">手机号码 <span class="required">*</span></label>
+          <input id="phoneInput" type="text" placeholder="例如 +44 7911 123456 或 +852 9123 4567" required />
+          <div id="phoneDetectHint" class="detect-hint">输入带国际区号的号码（如 +44、+1、+852）将自动识别国家</div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="countryNameInput">国家 / 地区</label>
+            <input id="countryNameInput" type="text" placeholder="自动识别或手动填写" />
+            <input id="countryCodeInput" type="hidden" />
+          </div>
+          <div class="form-group">
+            <label for="carrierInput">运营商 <span class="required">*</span></label>
+            <input id="carrierInput" type="text" list="carrierPresets" placeholder="例如 Giffgaff, T-Mobile, CUniq" required />
+            <datalist id="carrierPresets">
+              <option value="Giffgaff" />
+              <option value="T-Mobile" />
+              <option value="Ultra Mobile" />
+              <option value="CUniq" />
+              <option value="ClubSIM" />
+              <option value="3HK" />
+              <option value="Rakuten Mobile" />
+              <option value="Vodafone" />
+              <option value="O2" />
+            </datalist>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="activationDateInput">开通日期 <span class="required">*</span></label>
+            <input id="activationDateInput" type="date" required />
+          </div>
+          <div class="form-group">
+            <label for="lastRenewDateInput">最近保号日期</label>
+            <input id="lastRenewDateInput" type="date" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="cycleDaysInput">保号周期（天） <span class="required">*</span></label>
+          <div class="cycle-presets">
+            <button type="button" class="chip" data-days="30">30 天</button>
+            <button type="button" class="chip" data-days="60">60 天</button>
+            <button type="button" class="chip" data-days="90">90 天</button>
+            <button type="button" class="chip" data-days="180">180 天</button>
+            <button type="button" class="chip" data-days="365">365 天</button>
+          </div>
+          <input id="cycleDaysInput" type="number" min="1" max="3650" value="180" required />
+        </div>
+
+        <div class="form-group">
+          <label for="notesInput">备注</label>
+          <textarea id="notesInput" rows="2" placeholder="例如：每180天发一条短信或充值 £10 保号"></textarea>
+        </div>
+
+        <label class="checkbox-row">
+          <input id="enabledInput" type="checkbox" checked />
+          <span>启用 Telegram 到期提醒（提前 30 天、15 天、7 天、3 天）</span>
+        </label>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close="esimModal">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Telegram 设置弹窗 -->
+  <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="settingsModalTitle">⚙️ Telegram Bot 提醒设置</h3>
+        <button class="modal-close" data-close="settingsModal" aria-label="关闭提醒设置窗口">&times;</button>
+      </div>
+      <form id="settingsForm" class="modal-body">
+        <div class="form-group">
+          <label for="tgTokenInput">Bot Token</label>
+          <input id="tgTokenInput" type="password" placeholder="留空表示保持当前已保存的 Token" autocomplete="off" />
+          <div id="tgTokenCurrent" class="field-hint"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="tgChatIdInput">Chat ID</label>
+          <input id="tgChatIdInput" type="text" placeholder="例如 123456789 或 -1001234567890" />
+          <div class="field-hint">可通过 @userinfobot 获取您的 Chat ID，并先向您的 Bot 发送一条 /start 消息</div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="notifyTimeInput">每日提醒时间（按所选时区）</label>
+            <input id="notifyTimeInput" type="time" step="60" value="09:00" required />
+          </div>
+          <div class="form-group">
+            <label for="timezoneInput">时区</label>
+            <input id="timezoneInput" type="text" value="Asia/Shanghai" />
+          </div>
+        </div>
+
+        <div class="modal-footer space-between">
+          <button type="button" id="btnTestTelegram" class="btn btn-secondary">📨 发送测试消息</button>
+          <div class="btn-group">
+            <button type="button" class="btn btn-secondary" data-close="settingsModal">取消</button>
+            <button type="submit" class="btn btn-primary">保存设置</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
